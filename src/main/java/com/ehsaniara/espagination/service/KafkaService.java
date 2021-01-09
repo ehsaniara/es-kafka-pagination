@@ -54,19 +54,20 @@ public class KafkaService {
 
         log.debug("responseCountDto: {}", responseCountDto.getCount());
 
-        //let say i want to have page size of 500 then count / 500
-
-        int max = responseCountDto.getCount() / 500;
+        //page size of 500 then: count / 500
+        int size = 500;
+        int max = responseCountDto.getCount() / size;
         log.debug("count: {} , max: {}", responseCountDto.getCount(), max);
 
         //producer
-        IntStream.range(0, max).forEach(i -> paginationBinder.paginationOut()//
-                .send(MessageBuilder.withPayload(//
-                        PaginationDto.builder()//
-                                .id(i)//slice id
-                                .max(max)// let say i want to have page size of 500 then: count / 500
-                                .build())//
-                        .setHeader(MessageHeaders.CONTENT_TYPE, MimeTypeUtils.APPLICATION_JSON).build()));
+        IntStream.range(0, max)//
+                .forEach(i -> paginationBinder.paginationOut()//
+                        .send(MessageBuilder.withPayload(//
+                                PaginationDto.builder()//
+                                        .id(i)//slice id
+                                        .max(max)// let say i want to have page size of 500 then: count / 500
+                                        .build())//
+                                .setHeader(MessageHeaders.CONTENT_TYPE, MimeTypeUtils.APPLICATION_JSON).build()));
     }
 
     @StreamListener(PaginationBinder.PAGINATION_IN)
@@ -75,7 +76,8 @@ public class KafkaService {
         log.debug("paginationProcess: {}", paginationDto);
         try {
             Request request = new Request("GET", String.format("%s/_search?scroll=1m", INDEX_NAME));
-            //sorted by localDateTime and slice by id and max as parameters
+            //sorted by localDateTime and slice by id and max as parameters.
+            //Assuming no new documents are inserting to the result set or at least within that period. otherwise, we losing the consistency of the result during the pagination
             request.setJsonEntity(String.format("{\"slice\":{\"id\":%s,\"max\":%s},\"size\":10000,\"sort\":[{\"localDateTime\":\"asc\"}]}", paginationDto.getId(), paginationDto.getMax()));
             Response response = restHighLevelClient.getLowLevelClient().performRequest(request);
             //do something with the response ...
