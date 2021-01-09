@@ -5,7 +5,9 @@ By Using Kafka we can easily horizontally scale our application to do asynchrono
 ![ES-Kafka](./es-kafka-pagination.png)
 
 
-Let’s say you have an ElasticSearch Index of 1,000,000 documents, and you need to run an operation on those documents. We already know how expensive the deep-paging in ElasticSearch is, especially index.max_result_window and doing Search ‘from:’.
+Let’s say you have an ElasticSearch Index of 1,000,000 documents, and you need to run an operation on those documents. 
+
+We already know how expensive the deep-paging in ElasticSearch is, especially index.max_result_window and doing Search ‘from:’.
 ```shell
 GET /_search
 {
@@ -127,49 +129,46 @@ The producer first calls ES to get the count of the documents in the index, then
 
 ```java
 public void paginationProcess() {
-    log.debug("paginationProcess called");
     //call to ES and get the total count
     Response response = restHighLevelClient.getLowLevelClient()
-    .performRequest(new Request("GET", String.format("%s/_count", INDEX_NAME)));
+        .performRequest(new Request("GET", String.format("%s/_count", INDEX_NAME)));
 
     ResponseCountDto responseCountDto = objectMapper.readValue(EntityUtils.toString(response.getEntity()), ResponseCountDto.class);
 
     log.debug("responseCountDto: {}", responseCountDto.getCount());
-
-    //let say i want to have page size of 500 then count / 500
-
+    
     int max = responseCountDto.getCount() / 500;
     log.debug("count: {} , max: {}", responseCountDto.getCount(), max);
 
     //producer
     IntStream.range(0, max).forEach(i -> paginationBinder.paginationOut()//
-    .send(MessageBuilder.withPayload(//
-    PaginationDto.builder()//
-    .id(i)//slice id
-    .max(max)// let say i want to have page size of 500 then: count / 500
-    .build())//
-    .setHeader(MessageHeaders.CONTENT_TYPE, MimeTypeUtils.APPLICATION_JSON).build()));
-    }
+        .send(MessageBuilder.withPayload(//
+            PaginationDto.builder()//
+            .id(i)//slice id
+            .max(max)// let say i want to have page size of 500 then: count / 500
+            .build())//
+            .setHeader(MessageHeaders.CONTENT_TYPE, MimeTypeUtils.APPLICATION_JSON).build()));
+}
 ```
 
 Then the Consumer receives the slice number as a parameter. In case of any error in the consumer method, we retry it 5 times, and then it puts the message into to DLQ method.
 
 ```shell
- @StreamListener(PaginationBinder.PAGINATION_IN)
-    public void paginationProcess(@Payload PaginationDto paginationDto) {
-        // Call ES
-        log.debug("paginationProcess: {}", paginationDto);
-        try {
-            Request request = new Request("GET", String.format("%s/_search?scroll=1m", INDEX_NAME));
-            //sorted by localDateTime and slice by id and max as parameters
-            request.setJsonEntity(String.format("{\"slice\":{\"id\":%s,\"max\":%s},\"size\":10000,\"sort\":[{\"localDateTime\":\"asc\"}]}", paginationDto.getId(), paginationDto.getMax()));
-            Response response = restHighLevelClient.getLowLevelClient().performRequest(request);
-            //do something with the response ...
-            log.debug("response: {}", response);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+@StreamListener(PaginationBinder.PAGINATION_IN)
+public void paginationProcess(@Payload PaginationDto paginationDto) {
+    // Call ES
+    log.debug("paginationProcess: {}", paginationDto);
+    try {
+        Request request = new Request("GET", String.format("%s/_search?scroll=1m", INDEX_NAME));
+        //sorted by localDateTime and slice by id and max as parameters
+        request.setJsonEntity(String.format("{\"slice\":{\"id\":%s,\"max\":%s},\"size\":10000,\"sort\":[{\"localDateTime\":\"asc\"}]}", paginationDto.getId(), paginationDto.getMax()));
+        Response response = restHighLevelClient.getLowLevelClient().performRequest(request);
+        //do something with the response ...
+        log.debug("response: {}", response);
+    } catch (IOException e) {
+        e.printStackTrace();
     }
+}
 ```
 
 **_Note:_** Assume no new documents are inserting to the result set or at least within that period. Otherwise, we lose the consistency of the result during the pagination.
