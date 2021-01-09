@@ -2,12 +2,10 @@
 
 By Using Kafka we can easily horizontally scale our application to do asynchronous pagination in ElasticSearch.
 
-
 ![ES-Kafka](./es-kafka-pagination.png)
 
 
-Let’s say you have an ElasticSearch Index of 1,000,000 documents and you need to run an operation on those documents. We already know how expensive the deep-paging in ElasticSearch is, especially _**index.max_result_window**_ and doing Search ‘from:’.
-
+Let’s say you have an ElasticSearch Index of 1,000,000 documents, and you need to run an operation on those documents. We already know how expensive the deep-paging in ElasticSearch is, especially index.max_result_window and doing Search ‘from:’.
 ```shell
 GET /_search
 {
@@ -21,7 +19,7 @@ GET /_search
 }
 ```
 
-One way of overcoming the problem is to use search_after. In this case your process is becoming synchronous, which means you cannot call the second chunk of data without having the results from the first call, for example:
+One way of overcoming the problem is to use **_search_after_**. In this case your process is becoming synchronous, which means you cannot call the second chunk of data without having the results from the first call, for example:
 
 ```shell
 GET /_search
@@ -38,7 +36,7 @@ GET /_search
 }
 ```
 
-and results:
+results:
 
 ```shell
 {
@@ -61,7 +59,7 @@ and results:
 }
 ```
 
-As you can see, the results give you a sort value (4098435132000) where you can use in your second call-in “search_after” to get the next chunk as:
+As you can see, the results give you a sort value (**_4098435132000_**) where you can use in your second call-in “search_after” to get the next chunk as:
 
 ```shell
 GET /_search
@@ -80,9 +78,9 @@ GET /_search
   ]
 }
 ```
-and get the next sort value and use it in your next call.
+then get the next sort value and use it in your next call.
 
-This process is sequentially asynchronous, which means to get through 1,000,000 documents you need to call ES 1,000,000/10,000=100 times one after the other.
+This process is sequentially asynchronous, which means to get through 1,000,000 documents you need to call ES 1,000,000/10,000=**_100_** times one after the other.
 
 ### What can go wrong?
 - let’s say your application dies or runs out of memory during these calls
@@ -124,37 +122,37 @@ docker-compose -f docker-compose-kafka.yml up -d
 
 you can find the [docker-compose-es.yml](https://github.com/ehsaniara/es-kafka-pagination/blob/master/docker-compose-es.yml) and [docker-compose-kafka.yml](https://github.com/ehsaniara/es-kafka-pagination/blob/master/docker-compose-kafka.yml) in my Github account.
 
-The producer first calls ES to get the count of the documents in the index. then divide the count by 500 which will be the number of documents you expect to be retrieved in every ES calls.
+The producer first calls ES to get the count of the documents in the index, then divides the count by 500, which will be the number of documents you expect to be retrieved in every ES call.
 
 
 ```java
 public void paginationProcess() {
-        log.debug("paginationProcess called");
-        //call to ES and get the total count
-        Response response = restHighLevelClient.getLowLevelClient()
-                .performRequest(new Request("GET", String.format("%s/_count", INDEX_NAME)));
+    log.debug("paginationProcess called");
+    //call to ES and get the total count
+    Response response = restHighLevelClient.getLowLevelClient()
+    .performRequest(new Request("GET", String.format("%s/_count", INDEX_NAME)));
 
-        ResponseCountDto responseCountDto = objectMapper.readValue(EntityUtils.toString(response.getEntity()), ResponseCountDto.class);
+    ResponseCountDto responseCountDto = objectMapper.readValue(EntityUtils.toString(response.getEntity()), ResponseCountDto.class);
 
-        log.debug("responseCountDto: {}", responseCountDto.getCount());
+    log.debug("responseCountDto: {}", responseCountDto.getCount());
 
-        //let say i want to have page size of 500 then count / 500
+    //let say i want to have page size of 500 then count / 500
 
-        int max = responseCountDto.getCount() / 500;
-        log.debug("count: {} , max: {}", responseCountDto.getCount(), max);
+    int max = responseCountDto.getCount() / 500;
+    log.debug("count: {} , max: {}", responseCountDto.getCount(), max);
 
-        //producer
-        IntStream.range(0, max).forEach(i -> paginationBinder.paginationOut()//
-                .send(MessageBuilder.withPayload(//
-                        PaginationDto.builder()//
-                                .id(i)//slice id
-                                .max(max)// let say i want to have page size of 500 then: count / 500
-                                .build())//
-                        .setHeader(MessageHeaders.CONTENT_TYPE, MimeTypeUtils.APPLICATION_JSON).build()));
+    //producer
+    IntStream.range(0, max).forEach(i -> paginationBinder.paginationOut()//
+    .send(MessageBuilder.withPayload(//
+    PaginationDto.builder()//
+    .id(i)//slice id
+    .max(max)// let say i want to have page size of 500 then: count / 500
+    .build())//
+    .setHeader(MessageHeaders.CONTENT_TYPE, MimeTypeUtils.APPLICATION_JSON).build()));
     }
 ```
 
-Consumer: which is receiving the slice number as a parameter. in-case of any error we retry it _**5 times**_ then put the message int to DLQ method. this value can be configured in application.yml file
+Then the Consumer receives the slice number as a parameter. In case of any error in the consumer method, we retry it 5 times, and then it puts the message into to DLQ method.
 
 ```shell
  @StreamListener(PaginationBinder.PAGINATION_IN)
@@ -173,6 +171,9 @@ Consumer: which is receiving the slice number as a parameter. in-case of any err
         }
     }
 ```
+
+**_Note:_** Assume no new documents are inserting to the result set or at least within that period. Otherwise, we lose the consistency of the result during the pagination.
+
 
 application.yml file
 ```yaml
@@ -213,4 +214,7 @@ spring:
             default.key.serde: org.apache.kafka.common.serialization.Serdes$StringSerde
             default.value.serde: org.apache.kafka.common.serialization.Serdes$StringSerde
 ```
+
+#### Avoid toasting the memory
+If the number of slices is bigger than the number of shards, the slice filter will become very slow on the first calls. It has a complexity of O(N) and a memory cost which equals N bits per slice where N is the total number of documents in the shard. After a few calls, the filter should be cached and subsequent calls should be faster, but you should limit the number of sliced queries you perform in parallel to avoid the memory explosion.
 
