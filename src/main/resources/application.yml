@@ -1,0 +1,55 @@
+#Global
+spring:
+  application:
+    name: es-pagination
+
+  cloud.stream:
+    bindings:
+
+      pagination-out:
+        destination: pagination
+        producer:
+          partition-count: 10
+      pagination-in:
+        destination: pagination
+        group: ${spring.application.name}.pagination-group
+        consumer:
+          maxAttempts: 5
+      pagination-in-dlq:
+        destination: paginationDLQ
+        group: ${spring.application.name}.pagination-group
+
+    kafka:
+      streams:
+        bindings:
+          pagination-in:
+            consumer:
+              enableDlq: true
+              dlqName: paginationDLQ
+              autoCommitOnError: true
+              autoCommitOffset: true
+        binder:
+          autoAddPartitions: true
+          min-partition-count: 10
+          configuration:
+            commit.interval.ms: 100
+            default.key.serde: org.apache.kafka.common.serialization.Serdes$StringSerde
+            default.value.serde: org.apache.kafka.common.serialization.Serdes$StringSerde
+
+elasticsearch:
+  port: 9200
+  scheme: http
+  host: localhost
+
+logging:
+  level:
+    org.springframework.kafka.config: debug
+    com.ehsaniara: debug
+
+server:
+  port: 8080
+  tomcat:
+    threads:
+      max: 8
+
+
