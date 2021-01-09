@@ -1,37 +1,31 @@
-## Welcome to GitHub Pages
+# ElasticSearch Pagination by using Kafka
 
-You can use the [editor on GitHub](https://github.com/ehsaniara/es-kafka-pagination/edit/gh-pages/index.md) to maintain and preview the content for your website in Markdown files.
+![ES-Kafka](es-kafka-pagination.png)
+### Start
 
-Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
-
-### Markdown
-
-Markdown is a lightweight and easy-to-use syntax for styling your writing. It includes conventions for
-
-```markdown
-Syntax highlighted code block
-
-# Header 1
-## Header 2
-### Header 3
-
-- Bulleted
-- List
-
-1. Numbered
-2. List
-
-**Bold** and _Italic_ and `Code` text
-
-[Link](url) and ![Image](src)
+Let's first start the ElasticSearch in docker:
+```shell
+docker-compose -f docker-compose-es.yml up -d
 ```
 
-For more details see [GitHub Flavored Markdown](https://guides.github.com/features/mastering-markdown/).
+Then start your kafka cluster
+```shell
+docker-compose -f docker-compose-kafka.yml up -d
+```
+This is just a simple example for kafka docker-compose
 
-### Jekyll Themes
+Now you can start the application, you can check it by calling [localhost:8080](http://localhost:8080) from your browser.
 
-Your Pages site will use the layout and styles from the Jekyll theme you have selected in your [repository settings](https://github.com/ehsaniara/es-kafka-pagination/settings). The name of this theme is saved in the Jekyll `_config.yml` configuration file.
 
-### Support or Contact
+Let's insert some dummy data in your index, by running following line after you start the application.
 
-Having trouble with Pages? Check out our [documentation](https://docs.github.com/categories/github-pages-basics/) or [contact support](https://github.com/contact) and we’ll help you sort it out.
+```shell
+curl http://localhost:8080/test/init
+```
+
+Start the pagination by calling the kafka producer
+
+```shell
+curl http://localhost:8080/test
+```
+If you check the application log you ll notice the asynchronous call into ElasticSearch by multiple consumers.
