@@ -17,7 +17,7 @@ This is just a simple example for kafka docker-compose
 Now you can start the application, you can check it by calling [localhost:8080](http://localhost:8080) from your browser.
 
 
-Let's insert some dummy data in your index, by running following line after you start the application.
+Let's insert some dummy data in your index, by running following line after you start the application. (100K documents)
 
 ```shell
 curl http://localhost:8080/test/init
