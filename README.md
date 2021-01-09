@@ -1,6 +1,6 @@
 # ElasticSearch Pagination by using Kafka
 
-
+![ES-Kafka](es-kafka-pagination.png)
 ### Start
 
 Let's first start the ElasticSearch in docker:
