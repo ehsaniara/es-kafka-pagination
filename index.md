@@ -1,6 +1,12 @@
-# ElasticSearch Pagination by using Kafka
+# ElasticSearch High Volume Pagination in Parallel By Kafka
 
-![ES-Kafka](es-kafka-pagination.png)
+By Using Kafka we can easily horizontally scale our application to do asynchronous pagination in ElasticSearch.
+
+Let’s say you have an ElasticSearch Index of 1,000,000 documents and you need to run an operation on those documents. We already know how expensive the deep-paging in ElasticSearch is, especially index.max_result_window and doing Search ‘from:’.
+
+
+
+![ES-Kafka](./es-kafka-pagination.png)
 ### Start
 
 Let's first start the ElasticSearch in docker:
