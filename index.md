@@ -1,4 +1,4 @@
-# ElasticSearch High Volume Pagination in Parallel By Kafka
+# ElasticSearch Parallel Pagination by Kafka
 
 By Using Kafka we can easily horizontally scale our application to do asynchronous pagination in ElasticSearch.
 
