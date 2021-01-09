@@ -154,7 +154,7 @@ public void paginationProcess() {
     }
 ```
 
-Consumer: which is receiving the slice number as a parameter. in-case of any error we retry it 5 times then put the message int to DLQ method.
+Consumer: which is receiving the slice number as a parameter. in-case of any error we retry it _**5 times**_ then put the message int to DLQ method. this value can be configured in application.yml file
 
 ```shell
  @StreamListener(PaginationBinder.PAGINATION_IN)
@@ -172,5 +172,45 @@ Consumer: which is receiving the slice number as a parameter. in-case of any err
             e.printStackTrace();
         }
     }
+```
+
+application.yml file
+```yaml
+spring:
+  application:
+    name: es-pagination
+
+  cloud.stream:
+    bindings:
+
+      pagination-out:
+        destination: pagination
+        producer:
+          partition-count: 10
+      pagination-in:
+        destination: pagination
+        group: ${spring.application.name}.pagination-group
+        consumer:
+          maxAttempts: 5
+      pagination-in-dlq:
+        destination: paginationDLQ
+        group: ${spring.application.name}.pagination-group
+
+    kafka:
+      streams:
+        bindings:
+          pagination-in:
+            consumer:
+              enableDlq: true
+              dlqName: paginationDLQ
+              autoCommitOnError: true
+              autoCommitOffset: true
+        binder:
+          autoAddPartitions: true
+          min-partition-count: 10
+          configuration:
+            commit.interval.ms: 100
+            default.key.serde: org.apache.kafka.common.serialization.Serdes$StringSerde
+            default.value.serde: org.apache.kafka.common.serialization.Serdes$StringSerde
 ```
 
