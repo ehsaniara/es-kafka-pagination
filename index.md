@@ -154,7 +154,7 @@ public void paginationProcess() {
     }
 ```
 
-Consumer: which is receiving the slice number as a parameter. incase of error we retry it 5 times then put the message int to DLQ method.
+Consumer: which is receiving the slice number as a parameter. in-case of any error we retry it 5 times then put the message int to DLQ method.
 
 ```shell
  @StreamListener(PaginationBinder.PAGINATION_IN)
